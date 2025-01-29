@@ -277,3 +277,5 @@ store.on('error',(err)=>{
 ||Connect render with Github||
 git init
 touch .gitignore
+git add .
+git commit -m "Add Projects Files"

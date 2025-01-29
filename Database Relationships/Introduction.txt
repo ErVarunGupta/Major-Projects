@@ -1,0 +1,170 @@
+**Relationships**
+: SQL(via Foreign Keys)
+->one to one:
+
+->one to many:
+Approach1 (one to few):
+->Store the child document inside parent
+Ex:
+const userSchema = new Schema({
+    username: String,
+    address:[
+        {
+            _id: false,
+            location: String,
+            city: String,
+        },
+    ],
+});
+
+const User = mongoose.model("User",userSchema);
+
+
+const addUsers = async()=>{
+    let user1 = new User({
+        username: "sherlockhlmes",
+        address: [{
+            
+            location: "221B Baker Street",
+            city: "London"
+        }]
+    })
+
+    user1.address.push({location: "P32 WallStreet", city: "London"});
+    let result = await user1.save();
+    console.log(result);
+}
+
+addUsers();
+-----------------------------------------------------
+
+Approach2(One to Many):
+->Store a reference to the child document inside parent
+Ex:
+
+const orderSchema = new Schema({
+    item: String,
+    price: Number,
+});
+
+const customerSchema = new Schema({
+    name: String,
+    orders:[
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Order"
+        }
+    ]
+});
+
+const Order = mongoose.model("Order", orderSchema);
+const Customer = mongoose.model("Customer", customerSchema);
+
+const addCustomer = async()=>{
+    let cust1 = new Customer({
+        name: "Rahul Kumar",
+    });
+
+    let order1 = await Order.findOne({item: "Chips"});
+    let order2 = await Order.findOne({item: "Chocolate"});
+
+    cust1.orders.push(order1);
+    cust1.orders.push(order2);
+
+    let result = await cust1.save();
+    console.log(result);
+}
+
+addCustomer();
+
+// const addOrders = async()=>{
+//     let res = await Order.insertMany([
+//         {item: "Samosa", price: 12},
+//         {item: "Chips", price: 10},
+//         {item: "Chocolate", price: 40},
+//     ]);
+//     console.log(res);
+// }
+
+// addOrders();
+
+->opulated paths are no longer set to their original _id , their value is replaced with the mongoose document returned from the database by performing a separate query before returning the results.
+
+const findCustomer = async()=>{
+    let result = await Customer.find({}).populate("orders");
+    console.log(result[0]);
+}
+findCustomer();
+
+--------------------------------------------------
+Approach3(One to Many/ One to squillions)
+->Store a reference to the parent document inside child
+Ex:
+const userSchema = new Schema({
+    username: String,
+    email: String
+});
+
+const postSchema = new Schema({
+    content: String,
+    likes: Number,
+    user:{
+        type: Schema.Types.ObjectId,
+        ref: "User"
+    }
+})
+
+const User = mongoose.model("User", userSchema);
+const Post = mongoose.model("Post", postSchema);
+
+const addData = async()=>{
+    // let user1 = new User({
+    //     username: "varunkumar",
+    //     email: "varun@gmail.com"
+    // });//already saved
+
+    let user = await User.findOne({username: "varunkumar"});//extract id
+
+    let post1 = new Post({
+        content: "Buy Buy :",
+        likes: 25
+    });
+
+    post1.user = user;
+
+    // await user1.save();
+    await post1.save();
+}
+
+// addData();
+
+const getData = async()=>{
+    let result = await Post.findOne({}).populate("user", "username");
+    console.log(result);
+}
+getData();
+
+->many to many
+=====================================================================
+
+*Database denormalization rules of thumb: Your guide through the rainbow
+Here are some “rules of thumb” to guide you through these innumerable (but not infinite) choices:
+
+One: Favor embedding unless there is a compelling reason not to.
+
+Two: Needing to access an object on its own is a compelling reason not to embed it.
+
+Three: Arrays should not grow without bound. If there are more than a couple of hundred documents on the “many” side, don’t embed them; if there are more than a few thousand documents on the “many” side, don’t use an array of ObjectID references. High-cardinality arrays are a compelling reason not to embed.
+
+Four: Don’t be afraid of application-level joins: If you index correctly and use the projection specifier, then application-level joins are barely more expensive than server-side joins in a relational database.
+
+Five: Consider the read-to-write ratio with denormalization. A field that will mostly be read and only seldom updated is a good candidate for denormalization. If you denormalize a field that is updated frequently then the extra work of finding and updating all the instances of redundant data is likely to overwhelm the savings that you get from denormalization.
+
+Six: As always with MongoDB, how you model your data depends entirely on your particular application’s data access patterns. You want to structure your data to match the ways that your application queries and updates it.
+
+===============================================
+*Handling Deletion:
+(using Mongoose Middleware)
+->We can use 2 middlewares:
+1) Pre-run before the query is executed
+1) Post-run after the query is executed
